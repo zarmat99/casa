@@ -1,0 +1,10 @@
+{
+ "versione": 1,
+ "kdf": "PBKDF2-SHA256",
+ "giri": 600000,
+ "sale": "aZmu7YO6rT2LCOQwj8MEnA==",
+ "iv": "evYmQ4ajfP//OGx5",
+ "cifrato": "G0AKFYkV2o8i/+gXvwN32KM/5lQ32SNeokHa2lkttmvOHrutI0ywtX+TiXJSb4VwlrLpEKkIDXhmbgHr0om7QA9whZ7YerNmyLckbhuitW5sShQtws9y6P+pKHfUlCykIws+gljJ+l7En7o+WQ==",
+ "impostato": "2026-11-25",
+ "scadenza": "2027-11-25"
+}
