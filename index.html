@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#ecebe8">
+<title>Casa</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Casa">
+<meta name="robots" content="noindex">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icone/apple-touch-icon.png">
+<link rel="icon" href="icone/icon-192.png" type="image/png">
+<style>
+  /* Un solo mondo chiaro: la casa a tutto schermo, comandi in pillole di vetro sopra (modo e vista) e sotto (stanze).
+     Due modi (Matteo, 03/11): Esplora, che contiene Dall'alto e Dentro, ed Editor, una stanza alla volta. */
+  :root { color-scheme: light; --testo: #1d1d1f; --tenue: #6e6e73; --fondo: #ecebe8; --vetro: rgba(255, 255, 255, .8);
+    --blu: #0a84ff; --carattere: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, sans-serif; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; overflow: hidden; overscroll-behavior: none; background: var(--fondo);
+    color: var(--testo); font-family: var(--carattere); -webkit-user-select: none; user-select: none; }
+  button { font-family: inherit; cursor: pointer; }
+  button:focus-visible { outline: 2px solid #1d1d1f; outline-offset: 2px; }
+  #scena { position: fixed; inset: 0; }
+  #scena canvas { display: block; touch-action: none; }
+  .barra { position: fixed; left: 0; right: 0; display: flex; gap: 8px; padding: 10px 12px; pointer-events: none; }
+  .barra > * { pointer-events: auto; }
+  #alto { top: 0; padding-top: max(12px, env(safe-area-inset-top)); justify-content: center; align-items: flex-start; }
+  #alto .colonna { display: flex; flex-direction: column; align-items: center; gap: 7px; pointer-events: none; }
+  #alto .colonna > * { pointer-events: auto; }
+  #basso { bottom: 0; padding-bottom: max(14px, env(safe-area-inset-bottom)); overflow-x: auto; scrollbar-width: none; }
+  @media (max-width: 700px) {             /* sul telefono le stanze non stanno tutte: la sfumatura dice che si scorre */
+    #basso { -webkit-mask-image: linear-gradient(to right, #000 82%, transparent); mask-image: linear-gradient(to right, #000 82%, transparent); }
+  }
+  #basso::-webkit-scrollbar { display: none; }
+  .pillola { background: var(--vetro); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px);
+    box-shadow: 0 1px 10px rgba(0, 0, 0, .08); border-radius: 999px; }
+  .segmenti { display: flex; padding: 3px; }
+  .segmenti button { border: 0; background: transparent; color: var(--tenue); font: 600 15px/1 var(--carattere);
+    padding: 11px 19px; border-radius: 999px; }
+  .segmenti button[aria-pressed=true] { background: #fff; color: var(--testo); box-shadow: 0 1px 3px rgba(0, 0, 0, .14); }
+  .segmenti.piccoli button { font-size: 13.5px; padding: 8px 15px; }
+  /* Annulla e Rifai, ai lati del modo, solo nell'Editor */
+  .tondo { width: 43px; height: 43px; border: 0; padding: 0; display: grid; place-items: center; color: var(--testo); flex: none; }
+  .tondo svg { width: 21px; height: 21px; }
+  .tondo:disabled { color: #b4b4b8; }
+  .stanza { flex: none; border: 0; color: var(--testo); font: 500 15px/1 var(--carattere); padding: 12px 16px; }
+  .stanza[aria-pressed=true] { background: #1d1d1f; color: #fff; }
+  #etichette { position: fixed; inset: 0; pointer-events: none; overflow: hidden; }
+  .etichetta { position: absolute; left: 0; top: 0; text-align: center; white-space: nowrap; font: 600 12.5px/1.2 var(--carattere);
+    color: #2a2a2c; text-shadow: 0 0 4px #fff, 0 0 8px rgba(255, 255, 255, .9); will-change: transform; }
+  .etichetta small { display: block; font-weight: 500; font-size: 11.5px; color: #55555a; }
+  #suggerimento, #suggerimento-editor { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(80px + env(safe-area-inset-bottom));
+    font: 500 13px/1.35 var(--carattere); color: var(--tenue); padding: 8px 16px; text-align: center; border-radius: 18px;
+    width: max-content; max-width: calc(100vw - 24px); pointer-events: none; }
+  #suggerimento-editor { bottom: calc(150px + env(safe-area-inset-bottom)); color: var(--testo); }
+  #caricamento { position: fixed; inset: 0; display: grid; place-items: center; color: var(--tenue); font: 500 15px/1 var(--carattere); }
+  /* Editor: la barra degli strumenti sopra le stanze; il mobile scelto o il pannello delle finiture prendono il posto
+     di tutte e due. */
+  #barra-editor { bottom: calc(50px + max(14px, env(safe-area-inset-bottom))); justify-content: center; }
+  .strumenti { display: flex; gap: 2px; padding: 4px; border-radius: 22px; }
+  .strumento { border: 0; background: transparent; color: var(--testo); display: flex; flex-direction: column; align-items: center;
+    gap: 4px; min-width: 70px; padding: 7px 6px 6px; border-radius: 18px; font: 600 11px/1.1 var(--carattere); }
+  .strumento svg { width: 23px; height: 23px; }
+  .strumento[aria-pressed=true] { background: #1d1d1f; color: #fff; }
+  .comando:disabled { opacity: .38; }
+  .comando.pericolo { background: #ff3b30; color: #fff; }
+  #avviso-arredo { position: fixed; left: 50%; transform: translateX(-50%); top: calc(max(12px, env(safe-area-inset-top)) + 58px);
+    font: 500 13.5px/1.35 var(--carattere); color: var(--testo); padding: 9px 16px; border-radius: 18px; width: max-content;
+    max-width: calc(100vw - 24px); text-align: center; z-index: 6; }
+  .salva-riga { display: flex; gap: 8px; margin: 6px 0 4px; }
+  .salva-riga input { flex: 1; min-width: 0; font: 400 16px/1.2 var(--carattere); padding: 10px 12px; border: 1.5px solid #d2d0ca;
+    border-radius: 12px; background: #fff; color: var(--testo); }
+  .salva-riga input:focus { outline: none; border-color: var(--blu); }
+  #elenco-configurazioni { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  #elenco-configurazioni li { display: flex; align-items: center; gap: 8px; background: #fff; border-radius: 14px; padding: 10px 10px 10px 14px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, .07); }
+  #elenco-configurazioni li.vuoto { color: var(--tenue); font-size: 14px; background: transparent; box-shadow: none; padding: 4px 2px; }
+  .testo-conf { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+  .testo-conf b { font: 600 14.5px/1.25 var(--carattere); overflow-wrap: anywhere; }
+  .testo-conf small { color: var(--tenue); font-size: 12px; }
+  .foglio { position: fixed; left: 0; right: 0; bottom: 0; max-height: 64vh; overflow-y: auto; overscroll-behavior: contain;
+    background: rgba(249, 249, 248, .97); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px);
+    border-radius: 20px 20px 0 0; box-shadow: 0 -2px 24px rgba(0, 0, 0, .16);
+    padding: 6px 16px calc(18px + env(safe-area-inset-bottom)); z-index: 5; }
+  .foglio header { position: sticky; top: -6px; display: flex; align-items: center; justify-content: space-between;
+    background: inherit; padding: 8px 0 4px; }
+  .foglio h2 { margin: 0; font: 700 19px/1.2 var(--carattere); }
+  .foglio .chiudi { border: 0; background: #e6e6e8; color: var(--testo); width: 34px; height: 34px; border-radius: 50%;
+    font: 400 22px/1 var(--carattere); padding: 0 0 2px; }
+  .foglio .nota { margin: 2px 0 6px; color: var(--tenue); font: 400 13.5px/1.35 var(--carattere); }
+  .foglio h3 { margin: 14px 0 8px; color: var(--tenue); font: 600 12.5px/1 var(--carattere); text-transform: uppercase; letter-spacing: .05em; }
+  .griglia-mobili { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 10px; }
+  .scheda-mobile { border: 0; background: #fff; border-radius: 14px; padding: 6px 6px 9px; text-align: left; color: var(--testo);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, .08); font: 500 12.5px/1.25 var(--carattere); display: flex; flex-direction: column; gap: 5px; }
+  .scheda-mobile canvas { width: 100%; aspect-ratio: 1; height: auto; border-radius: 10px; display: block; background: #5c5c5e; }
+  .scheda-mobile small { color: var(--tenue); font-size: 11.5px; }
+  #selezione, #pannello-finiture { bottom: 0; padding-bottom: max(14px, env(safe-area-inset-bottom)); justify-content: center; }
+  .scheda-scelta { border-radius: 20px; padding: 10px 12px 10px; display: flex; flex-direction: column; gap: 8px;
+    max-width: 100%; background: rgba(255, 255, 255, .92); }
+  .testa-scelta { display: flex; align-items: baseline; gap: 8px; padding: 0 4px; font: 400 13px/1.2 var(--carattere); color: var(--tenue);
+    flex-wrap: wrap; }
+  .testa-scelta b { color: var(--testo); font-weight: 600; font-size: 14.5px; }
+  .testa-scelta .posizione { color: #0a5fd6; font-weight: 600; }
+  .testa-scelta .attenzione { color: #d70015; font-weight: 600; }
+  .comandi { display: flex; align-items: center; gap: 14px; }
+  .comando { border: 0; background: #ececee; color: var(--testo); font: 600 14px/1 var(--carattere); padding: 11px 13px; border-radius: 999px;
+    touch-action: manipulation; -webkit-touch-callout: none; }
+  .comando.primario { background: #1d1d1f; color: #fff; }
+  /* le frecce come quelle della tastiera: su in alto, sinistra, giù e destra sotto */
+  .frecce { display: grid; grid-template-columns: repeat(3, 42px); grid-template-rows: repeat(2, 38px); gap: 4px; flex: none; }
+  .frecce .freccia { padding: 0; border-radius: 11px; display: grid; place-items: center; }
+  .frecce .freccia svg { width: 18px; height: 18px; }
+  .frecce .freccia:active { background: #d9d9de; }
+  .frecce [data-azione=su] { grid-area: 1 / 2; }
+  .frecce [data-azione=sinistra] { grid-area: 2 / 1; }
+  .frecce [data-azione=giu] { grid-area: 2 / 2; }
+  .frecce [data-azione=destra] { grid-area: 2 / 3; }
+  .azioni { display: grid; grid-template-columns: auto auto; gap: 4px 6px; }
+  .azioni [data-azione=fatto] { grid-column: 1 / -1; }
+  /* Pareti e pavimento: una striscia di campioni che scorre, la stanza resta in vista sopra */
+  .pannello { width: min(100%, 540px); border-radius: 22px; padding: 12px 0 10px; display: flex; flex-direction: column; gap: 8px;
+    background: rgba(255, 255, 255, .94); }
+  .testa-pannello { display: flex; align-items: center; gap: 10px; padding: 0 12px 0 16px; }
+  .testa-pannello .titoli { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+  .testa-pannello b { font: 600 15px/1.2 var(--carattere); }
+  .testa-pannello .scelta { color: var(--tenue); font: 500 12.5px/1.2 var(--carattere); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pannello .segmenti { align-self: flex-start; margin: 0 0 0 12px; background: #ececee; border-radius: 999px; }
+  .campioni { display: flex; gap: 4px; overflow-x: auto; padding: 4px 10px 2px; scrollbar-width: none; overscroll-behavior-x: contain; }
+  .campioni::-webkit-scrollbar { display: none; }
+  .campione { flex: none; width: 64px; border: 0; background: transparent; padding: 4px 0 2px; display: flex; flex-direction: column;
+    align-items: center; gap: 7px; color: var(--testo); font: 500 10.5px/1.15 var(--carattere); text-align: center; }
+  .campione .tinta { width: 44px; height: 44px; border-radius: 50%; border: 1px solid rgba(0, 0, 0, .12); }
+  .campione canvas { width: 50px; height: 50px; border-radius: 12px; border: 1px solid rgba(0, 0, 0, .12); background: #ddd; }
+  .campione[aria-pressed=true] .tinta, .campione[aria-pressed=true] canvas { outline: 2.5px solid var(--blu); outline-offset: 2px; }
+  .campione[aria-pressed=true] { font-weight: 700; }
+  /* Ora e meteo (Esplora): la pillola accanto a Dall'alto | Dentro, il pannello in basso al posto delle stanze */
+  #riga-viste { display: flex; gap: 6px; align-items: center; pointer-events: none; }
+  #riga-viste > * { pointer-events: auto; }
+  .tempo { border: 0; display: flex; align-items: center; gap: 5px; padding: 6px 12px 6px 9px; min-height: 37px;
+    font: 600 13.5px/1 var(--carattere); color: var(--testo); font-variant-numeric: tabular-nums; }
+  .tempo svg { width: 20px; height: 20px; }
+  .tempo[aria-pressed=true] { background: #1d1d1f; color: #fff; }
+  #pannello-tempo { bottom: 0; padding-bottom: max(14px, env(safe-area-inset-bottom)); justify-content: center; }
+  .tempo-pannello { gap: 9px; }
+  .riga-ora { display: flex; align-items: center; gap: 8px; padding: 0 12px 0 16px; }
+  .ora-grande { flex: 1; font: 700 30px/1 var(--carattere); font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+  .comando.adesso[aria-pressed=true] { background: var(--blu); color: #fff; }
+  .cursore-ora { padding: 0 16px; --alba: 30%; --tramonto: 72%; }
+  .cursore-ora input { width: 100%; height: 30px; margin: 0; background: transparent; -webkit-appearance: none; appearance: none; touch-action: pan-x; }
+  .cursore-ora input::-webkit-slider-runnable-track { height: 10px; border-radius: 5px; background: var(--traccia); }
+  .cursore-ora input::-moz-range-track { height: 10px; border-radius: 5px; background: var(--traccia); }
+  .cursore-ora input::-webkit-slider-thumb { -webkit-appearance: none; width: 26px; height: 26px; margin-top: -8px; border-radius: 50%;
+    background: #fff; box-shadow: 0 1px 5px rgba(0, 0, 0, .35); }
+  .cursore-ora input::-moz-range-thumb { width: 26px; height: 26px; border: 0; border-radius: 50%; background: #fff; box-shadow: 0 1px 5px rgba(0, 0, 0, .35); }
+  .cursore-ora input { --traccia: linear-gradient(to right, #26304a 0, #26304a calc(var(--alba) - 2.5%), #f1b76a var(--alba),
+    #9fd0ff calc(var(--alba) + 6%), #9fd0ff calc(var(--tramonto) - 6%), #f0995a var(--tramonto), #26304a calc(var(--tramonto) + 2.5%), #26304a 100%); }
+  .alba-tramonto { display: flex; justify-content: space-between; margin-top: 3px; color: var(--tenue); font: 500 12px/1.2 var(--carattere); }
+  .chip { flex: none; border: 0; background: #ececee; color: var(--testo); font: 600 13px/1 var(--carattere); padding: 9px 12px;
+    border-radius: 999px; }
+  .chip[aria-pressed=true] { background: #1d1d1f; color: #fff; }
+  input.chip { padding: 5px 10px; font: 500 13px/1.2 var(--carattere); min-height: 31px; }
+  .giorni { align-items: center; gap: 6px; }
+  .meteo-chip .icona { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: #ececee; }
+  .meteo-chip .icona svg { width: 26px; height: 26px; }
+  .meteo-chip[aria-pressed=true] .icona { background: #1d1d1f; color: #fff; }
+  .tempo-pannello .luci { align-self: center; margin: 0; background: #ececee; }
+  .credito { margin: 0 16px; color: var(--tenue); font: 400 11px/1.3 var(--carattere); }
+  #quote { position: fixed; inset: 0; pointer-events: none; overflow: hidden; }
+  .quota { position: absolute; left: 0; top: 0; white-space: nowrap; font: 700 12.5px/1 var(--carattere); color: #0a5fd6;
+    background: rgba(255, 255, 255, .94); padding: 4px 7px; border-radius: 8px; box-shadow: 0 1px 4px rgba(0, 0, 0, .15);
+    will-change: transform; }
+  /* GitHub Pages (dati.js): le impostazioni in alto a sinistra, in Esplora; i fogli del token e della password */
+  #b-impostazioni { position: fixed; left: 12px; top: max(12px, env(safe-area-inset-top)); z-index: 4; }
+  #avviso-dati { position: fixed; left: 50%; transform: translateX(-50%); top: calc(max(12px, env(safe-area-inset-top)) + 104px);
+    font: 500 13.5px/1.35 var(--carattere); color: var(--testo); padding: 9px 16px; border-radius: 18px; width: max-content;
+    max-width: calc(100vw - 24px); text-align: center; z-index: 7; }
+  .foglio-dati { z-index: 8; max-height: 88vh; -webkit-user-select: text; user-select: text; }
+  .foglio-dati .campo { display: flex; flex-direction: column; gap: 5px; margin: 10px 0 0; color: var(--tenue); font: 600 12.5px/1.2 var(--carattere); }
+  .foglio-dati .campo input { font: 400 16px/1.2 var(--carattere); padding: 11px 12px; border: 1.5px solid #d2d0ca; border-radius: 12px;
+    background: #fff; color: var(--testo); width: 100%; min-height: 46px; }
+  .foglio-dati .campo input:focus { outline: none; border-color: var(--blu); }
+  .foglio-dati .largo { display: block; width: 100%; margin-top: 14px; padding: 14px; font-size: 15px; }
+  .foglio-dati .errore { margin: 10px 0 0; color: #d70015; font: 600 13.5px/1.35 var(--carattere); }
+  .foglio-dati .piccola { font-size: 12.5px; margin-top: 10px; }
+  .foglio-dati a { color: #0a5fd6; }
+  .foglio-dati .comandi-dati { display: flex; flex-wrap: wrap; gap: 8px; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<div id="scena"></div>
+<div id="etichette"></div>
+<button id="b-impostazioni" class="tondo pillola" aria-label="Impostazioni" title="Impostazioni" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.1" fill="none" stroke="currentColor" stroke-width="1.9"/><path d="M12 2.8v2.6M12 18.6v2.6M21.2 12h-2.6M5.4 12H2.8M18.5 5.5l-1.85 1.85M7.35 16.65 5.5 18.5M18.5 18.5l-1.85-1.85M7.35 7.35 5.5 5.5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/><circle cx="12" cy="12" r="6.6" fill="none" stroke="currentColor" stroke-width="1.9"/></svg></button>
+<div class="barra" id="alto">
+  <button id="b-annulla" class="tondo pillola" aria-label="Annulla" title="Annulla (Ctrl+Z)" hidden disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14 4 9l5-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+  <div class="colonna">
+    <div class="segmenti pillola" id="modi" role="group" aria-label="Modo">
+      <button id="b-esplora" aria-pressed="true">Esplora</button>
+      <button id="b-editor" aria-pressed="false">Editor</button>
+    </div>
+    <div class="riga" id="riga-viste">
+      <div class="segmenti piccoli pillola" id="viste" role="group" aria-label="Vista di Esplora">
+        <button id="b-pianta" aria-pressed="true">Dall'alto</button>
+        <button id="b-giorno" aria-pressed="false">Dentro</button>
+      </div>
+    </div>
+  </div>
+  <button id="b-rifai" class="tondo pillola" aria-label="Rifai" title="Rifai (Ctrl+Y)" hidden disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 14 5-5-5-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+</div>
+<div id="suggerimento" class="pillola" hidden>Trascina per guardarti intorno<br>Doppio tocco sul pavimento per spostarti<br>Tocca una porta per aprirla o chiuderla</div>
+<div id="suggerimento-editor" class="pillola" hidden>Tocca un mobile per sceglierlo, poi trascinalo<br>Un dito gira la stanza, due dita avvicinano</div>
+<div class="barra" id="basso" role="group" aria-label="Stanze"></div>
+<div id="caricamento">Carico la casa…</div>
+<script type="module" src="./visore.min.js"></script>
+</body>
+</html>

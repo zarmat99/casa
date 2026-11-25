@@ -1,0 +1,31 @@
+{
+  "name": "Casa",
+  "short_name": "Casa",
+  "description": "La copia digitale della casa: guardarla e provare mobili e colori",
+  "lang": "it",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#ecebe8",
+  "theme_color": "#ecebe8",
+  "icons": [
+    {
+      "src": "icone/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icone/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icone/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
